@@ -1,98 +1,43 @@
 (function () {
-  // 지원할 URL 패턴 배열 (뉴스기사 URL에 포함되는 특징 문자열)
-  const supportedUrlPatterns = [
-    '/article/',
-    '/news/',
-    '/view/',
-    '/read/',
-    '/story/',
-    '/media/',
-    '/contents/',
-    '/section/',
-    '/articles/',
-    '/reports/',
-    '/breaking/'
+  const validUrlPatterns = [
+    '/article/', '/news/', '/view/', '/read/', '/articles/', '/story/', '/media/', '/contents/'
   ];
-
-  // 현재 URL이 지원하는 뉴스기사 URL인지 검사하는 함수
-  function isSupportedNewsUrl(url) {
-    return supportedUrlPatterns.some(pattern => url.includes(pattern));
-  }
-
-  if (!isSupportedNewsUrl(location.href)) return;
+  if (!validUrlPatterns.some(pattern => location.href.includes(pattern))) return;
   if (document.getElementById('news-sidebar-container')) return;
 
   const sidebarStyle = `
     position: fixed;
     top: 0;
     right: 0;
-    width: 320px;
+    width: 360px;
     height: 100vh;
-    background: #f9f9f9;
-    border-left: 1px solid #ddd;
-    box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+    background: #FFF5E1;
+    border-left: 3px solid #800020;
+    box-shadow: -3px 0 10px rgba(128,0,32,0.3);
     z-index: 2147483647;
-    padding: 16px;
+    padding: 24px 20px 20px 20px;
     overflow-y: auto;
-    font-family: Arial, sans-serif;
-    color: #333;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #4B2C2C;
+    display: flex;
+    flex-direction: column;
   `;
 
   function extractArticleInfo() {
     const titleEl = document.querySelector('h1');
     const title = titleEl ? titleEl.innerText.trim() : null;
 
-    // 본문 추출을 시도할 여러 선택자 배열 (언론사별로 다를 수 있음)
-    const bodySelectors = [
-      'article p',
-      '.article-content p',
-      '.news-content p',
-      '.article-body p',
-      '.content p',
-      '.story-content p',
-      '.news_article p',
-      '.text p',
-      '.news_text p',
-      '.article_text p'
-    ];
+    const reporterEl = document.querySelector('.reporter, .byline, .author, .journalist');
+    const reporter = reporterEl ? reporterEl.innerText.trim() : null;
 
-    let fullText = '';
-    for (const sel of bodySelectors) {
-      const paras = Array.from(document.querySelectorAll(sel));
-      if (paras.length > 0) {
-        fullText = paras.map(p => p.innerText.trim()).filter(t => t.length > 0).join(' ');
-        if (fullText) break;
-      }
-    }
-
-    // 본문 못 찾았으면 기본 p 태그 중 앞 5개 문단 가져오기
+    const paragraphs = Array.from(document.querySelectorAll('article p, .article-content p, .news-content p'));
+    let fullText = paragraphs.map(p => p.innerText.trim()).filter(t => t.length > 0).join(' ');
     if (!fullText) {
       const pAll = Array.from(document.querySelectorAll('p'));
       fullText = pAll.slice(0, 5).map(p => p.innerText.trim()).join(' ');
     }
 
-    // 기자명 추출 시도할 선택자 배열
-    const reporterSelectors = [
-      '[class*=reporter]',
-      '.byline',
-      '.author',
-      '.writer',
-      '.journalist',
-      '.reporter-name',
-      '.name',
-      '.writer-name'
-    ];
-
-    let reporter = null;
-    for (const sel of reporterSelectors) {
-      const el = document.querySelector(sel);
-      if (el && el.innerText.trim()) {
-        reporter = el.innerText.trim();
-        break;
-      }
-    }
-
-    return { title, fullText, reporter };
+    return { title, reporter, fullText };
   }
 
   function generateSummary(text) {
@@ -102,71 +47,97 @@
     return summary.length > 300 ? summary.slice(0, 300) + '...' : summary;
   }
 
+  // 좌(파랑), 우(빨강) 색깔 막대바 렌더링
   function renderPoliticalBiasBar(container, leftPercent, rightPercent) {
-    const total = leftPercent + rightPercent;
-    const leftRatio = (leftPercent / total) * 100;
-    const rightRatio = (rightPercent / total) * 100;
+    container.style.marginTop = '16px';
 
-    const biasHTML = `
-      <h3 style="font-size:15px; margin-top:20px;">정치 성향 분석</h3>
-      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
-        <span style="color:#0072c6;">좌파 ${leftPercent}%</span>
-        <span style="color:#d9534f;">우파 ${rightPercent}%</span>
+    container.innerHTML = `
+      <div style="font-weight:bold; margin-bottom:6px;">정치 성향 분석</div>
+      <div style="display:flex; align-items:center; gap:8px; font-size:14px; color:#4B2C2C;">
+        <span>좌</span>
+        <div style="flex:1; background:#d6e1f4; border-radius:12px; height:18px; overflow:hidden; box-shadow: inset 0 0 5px rgba(0,0,0,0.1);">
+          <div style="height:100%; width:${leftPercent}%; background:#0047AB; border-radius:12px 0 0 12px; transition: width 0.5s;"></div>
+        </div>
+        <span>우</span>
+        <div style="flex:1; background:#f4d6d6; border-radius:12px; height:18px; overflow:hidden; box-shadow: inset 0 0 5px rgba(0,0,0,0.1);">
+          <div style="height:100%; width:${rightPercent}%; background:#B22222; border-radius:12px 0 0 12px; transition: width 0.5s;"></div>
+        </div>
       </div>
-      <div style="width:100%; height:18px; background:#eee; border-radius:9px; overflow:hidden;">
-        <div style="width:${leftRatio}%; height:100%; background:#0072c6; float:left;"></div>
-        <div style="width:${rightRatio}%; height:100%; background:#d9534f; float:left;"></div>
+      <div style="display:flex; justify-content: space-between; margin-top:4px; font-size:12px; color:#800020;">
+        <span>${leftPercent}%</span>
+        <span>${rightPercent}%</span>
       </div>
     `;
-    container.insertAdjacentHTML('beforeend', biasHTML);
   }
 
-  function createSidebar(title, summary, reporter, fullText, politicalBias) {
-  if (!fullText || fullText.length < 100) return; // 너무 짧으면 사이드바 생성 안함
-
-  const sidebar = document.createElement('aside');
-  sidebar.id = 'news-sidebar-container';
-  sidebar.style.cssText = sidebarStyle;
-
-  sidebar.innerHTML = `
-    <h2 style="font-size:20px; margin-top:0;">${title || '제목 없음'}</h2>
-    ${reporter ? `<p style="font-size:13px; color:#666;">🖋️ ${reporter}</p>` : ''}
-    <h3 style="font-size:16px; margin-top:20px;">요약</h3>
-    <p style="line-height:1.5; font-size:14px;">${summary}</p>
-    <div id="bias-bar-container" style="margin-top:20px;"></div>
-    <button id="news-sidebar-close" style="
-      position: absolute; 
-      top: 8px; 
-      right: 8px; 
-      background: transparent; 
-      border: none; 
-      font-size: 18px; 
-      cursor: pointer;
-      color: #666;">×</button>
-  `;
-
-  document.body.appendChild(sidebar);
-
-  sidebar.querySelector('#news-sidebar-close').addEventListener('click', () => {
-    sidebar.remove();
-  });
-
-  if (politicalBias && typeof politicalBias.left === 'number' && typeof politicalBias.right === 'number') {
-    const biasContainer = document.getElementById('bias-bar-container');
-    renderPoliticalBiasBar(biasContainer, politicalBias.left, politicalBias.right);
-  }
+  // 신뢰도 평가 틀 생성 함수
+  function renderReliabilitySection(container) {
+    container.style.marginTop = '32px';
+    container.innerHTML = `
+      <h3 style="color:#800020; font-weight:bold; margin-bottom: 8px;">신뢰도 평가</h3>
+      <p style="font-size: 14px; margin-bottom: 8px; color:#4B2C2C;">
+        백엔드 AI 기반 신뢰도 분석 결과가 여기에 표시됩니다.
+      </p>
+      <h4 style="color:#800020; font-weight:bold; margin-bottom: 4px;">의심 요소</h4>
+      <ul id="suspicion-list" style="font-size: 13px; color:#4B2C2C; margin-top:0; padding-left: 16px;">
+        <!-- 예시 아이템 -->
+        <li>내용 출처 불명확</li>
+        <li>일방적인 주장 포함</li>
+        <li>검증되지 않은 통계 사용</li>
+      </ul>
+    `;
   }
 
+  function createSidebar(title, summary, reporter, politicalBias) {
+    const sidebar = document.createElement('aside');
+    sidebar.id = 'news-sidebar-container';
+    sidebar.style.cssText = sidebarStyle;
 
-  // 실행
-  const { title, fullText, reporter } = extractArticleInfo();
+    sidebar.innerHTML = `
+      <h1 style="
+        font-size: 48px; 
+        font-weight: 900; 
+        margin: 0 0 20px 0; 
+        color: #800020;
+        user-select: none;
+      ">B.B.</h1>
+      ${title ? `<h2 style="font-size:20px; margin:0 0 12px 0; color:#4B2C2C;">${title}</h2>` : ''}
+      ${reporter ? `<p style="font-size:13px; margin:0 0 20px 0; color:#4B2C2C; font-style: italic;">🖋️ ${reporter}</p>` : ''}
+      <h3 style="font-size:16px; margin:0 0 8px 0; color:#800020;">기사 요약</h3>
+      <p style="line-height:1.5; font-size:14px; color:#4B2C2C;">${summary}</p>
+      <div id="bias-bar-container"></div>
+      <div id="reliability-section"></div>
+      <button id="news-sidebar-close" style="
+        position: absolute; 
+        top: 12px; 
+        right: 12px; 
+        background: transparent; 
+        border: none; 
+        font-size: 24px; 
+        cursor: pointer;
+        color: #800020;
+        font-weight: bold;
+      ">×</button>
+    `;
+
+    document.body.appendChild(sidebar);
+
+    sidebar.querySelector('#news-sidebar-close').addEventListener('click', () => {
+      sidebar.remove();
+    });
+
+    if (politicalBias && typeof politicalBias.left === 'number' && typeof politicalBias.right === 'number') {
+      const biasContainer = document.getElementById('bias-bar-container');
+      renderPoliticalBiasBar(biasContainer, politicalBias.left, politicalBias.right);
+    }
+
+    const reliabilityContainer = document.getElementById('reliability-section');
+    renderReliabilitySection(reliabilityContainer);
+  }
+
+  const examplePoliticalBias = { left: 45, right: 55 };
+
+  const { title, reporter, fullText } = extractArticleInfo();
   const summary = generateSummary(fullText);
-
-  // 임의 정치 성향 비율 예시
-  const politicalBias = {
-    left: 65,
-    right: 35
-  };
-
-  createSidebar(title, summary, reporter, fullText, politicalBias);
+  createSidebar(title, summary, reporter, examplePoliticalBias);
 })();
