@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "News Sidebar Reader",
+  "version": "1.1",
+  "description": "'/article/' 또는 '/news/'가 포함된 URL에서 제목과 요약을 사이드바에 표시합니다.",
+  "permissions": ["tabs", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "뉴스 사이드바 열기",
+    "default_icon": {
+      "48": "icon48.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
