@@ -1,5 +1,25 @@
 (function () {
-  if (!(location.href.includes('/article/') || location.href.includes('/news/'))) return;
+  // 지원할 URL 패턴 배열 (뉴스기사 URL에 포함되는 특징 문자열)
+  const supportedUrlPatterns = [
+    '/article/',
+    '/news/',
+    '/view/',
+    '/read/',
+    '/story/',
+    '/media/',
+    '/contents/',
+    '/section/',
+    '/articles/',
+    '/reports/',
+    '/breaking/'
+  ];
+
+  // 현재 URL이 지원하는 뉴스기사 URL인지 검사하는 함수
+  function isSupportedNewsUrl(url) {
+    return supportedUrlPatterns.some(pattern => url.includes(pattern));
+  }
+
+  if (!isSupportedNewsUrl(location.href)) return;
   if (document.getElementById('news-sidebar-container')) return;
 
   const sidebarStyle = `
@@ -18,71 +38,66 @@
     color: #333;
   `;
 
-  // 본문 필터링 함수: 날짜, 기자, 저작권, 짧은 문장 제외
-  function isValidParagraph(text) {
-    if (!text) return false;
-    if (text.length < 60) return false; // 너무 짧은 문장 제외
-    const forbiddenPatterns = [
-      /기사입력/i,
-      /수정/i,
-      /무단전재/i,
-      /재배포/i,
-      /ⓒ/i,
-      /Copyright/i,
-      /저작권/i,
-      /\d{4}.\d{2}.\d{2}/, // 날짜 패턴
-      /연합뉴스/i,
-      /출처:/i,
-      /기자/i
-    ];
-    return !forbiddenPatterns.some(pattern => pattern.test(text));
-  }
-
   function extractArticleInfo() {
-    // 제목
     const titleEl = document.querySelector('h1');
-    const title = titleEl ? titleEl.innerText.trim() : '';
+    const title = titleEl ? titleEl.innerText.trim() : null;
 
-    // 본문 문단 수집
-    const possibleSelectors = ['article p', '.article-content p', '.news-content p', 'div.article-body p'];
-    let paragraphs = [];
-    for (const sel of possibleSelectors) {
-      const nodes = Array.from(document.querySelectorAll(sel));
-      if (nodes.length > 5) {
-        paragraphs = nodes;
+    // 본문 추출을 시도할 여러 선택자 배열 (언론사별로 다를 수 있음)
+    const bodySelectors = [
+      'article p',
+      '.article-content p',
+      '.news-content p',
+      '.article-body p',
+      '.content p',
+      '.story-content p',
+      '.news_article p',
+      '.text p',
+      '.news_text p',
+      '.article_text p'
+    ];
+
+    let fullText = '';
+    for (const sel of bodySelectors) {
+      const paras = Array.from(document.querySelectorAll(sel));
+      if (paras.length > 0) {
+        fullText = paras.map(p => p.innerText.trim()).filter(t => t.length > 0).join(' ');
+        if (fullText) break;
+      }
+    }
+
+    // 본문 못 찾았으면 기본 p 태그 중 앞 5개 문단 가져오기
+    if (!fullText) {
+      const pAll = Array.from(document.querySelectorAll('p'));
+      fullText = pAll.slice(0, 5).map(p => p.innerText.trim()).join(' ');
+    }
+
+    // 기자명 추출 시도할 선택자 배열
+    const reporterSelectors = [
+      '[class*=reporter]',
+      '.byline',
+      '.author',
+      '.writer',
+      '.journalist',
+      '.reporter-name',
+      '.name',
+      '.writer-name'
+    ];
+
+    let reporter = null;
+    for (const sel of reporterSelectors) {
+      const el = document.querySelector(sel);
+      if (el && el.innerText.trim()) {
+        reporter = el.innerText.trim();
         break;
       }
     }
-    if (paragraphs.length === 0) {
-      paragraphs = Array.from(document.querySelectorAll('p'));
-    }
 
-    // 필터링 적용
-    const filteredTexts = paragraphs
-      .map(p => p.innerText.trim())
-      .filter(isValidParagraph);
-
-    // 본문으로 쓸 텍스트
-    let fullText = filteredTexts.join(' ');
-    if (!fullText || fullText.length < 100) {
-      // 너무 짧으면 그냥 상위 5개 문단 합침
-      fullText = paragraphs.slice(0, 5).map(p => p.innerText.trim()).join(' ');
-    }
-
-    // 기자명
-    const reporterEl = document.querySelector('[class*=reporter], .byline, .author, [rel=author]');
-    const reporter = reporterEl ? reporterEl.innerText.trim() : '';
-
-    // 날짜는 아예 뺌
-    const date = '';
-
-    return { title, fullText, reporter, date };
+    return { title, fullText, reporter };
   }
 
   function generateSummary(text) {
     if (!text) return '요약할 내용이 없습니다.';
-    // 문장 단위로 분리 (마침표, 느낌표, 물음표 기준)
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [text];
     const summary = sentences.slice(0, 3).join(' ');
     return summary.length > 300 ? summary.slice(0, 300) + '...' : summary;
   }
@@ -103,33 +118,22 @@
         <div style="width:${rightRatio}%; height:100%; background:#d9534f; float:left;"></div>
       </div>
     `;
-
     container.insertAdjacentHTML('beforeend', biasHTML);
-
-    let dominant = leftPercent >= rightPercent ? '좌파' : '우파';
-    let dominantPercent = leftPercent >= rightPercent ? leftPercent : rightPercent;
-
-    container.insertAdjacentHTML('beforeend', `
-      <p style="margin-top:8px; font-size:13px; color:#444;">
-        이 기사는 <strong>${dominantPercent}%</strong>로 <strong>${dominant}</strong> 성향을 띕니다.
-      </p>
-    `);
   }
 
-  function createSidebar(title, summary, reporter, date, politicalBias) {
-    if (document.getElementById('news-sidebar-container')) return;
-
+  function createSidebar(title, summary, reporter, fullText, politicalBias) {
     const sidebar = document.createElement('aside');
     sidebar.id = 'news-sidebar-container';
     sidebar.style.cssText = sidebarStyle;
 
     sidebar.innerHTML = `
       <h2 style="font-size:20px; margin-top:0;">${title || '제목 없음'}</h2>
-      <div style="font-size:13px; color:#666; margin-bottom: 6px;">
-        ${reporter ? `🖋️ ${reporter}` : ''}
-      </div>
+      ${reporter ? `<p style="font-size:13px; color:#666;">🖋️ ${reporter}</p>` : ''}
       <h3 style="font-size:16px; margin-top:20px;">요약</h3>
       <p style="line-height:1.5; font-size:14px;">${summary}</p>
+      <hr />
+      <h3 style="font-size:15px; margin-top:20px;">본문 전체</h3>
+      <p style="line-height:1.5; font-size:13px;">${fullText}</p>
       <div id="bias-bar-container" style="margin-top:20px;"></div>
       <button id="news-sidebar-close" style="
         position: absolute; 
@@ -155,13 +159,14 @@
   }
 
   // 실행
-  const { title, fullText, reporter, date } = extractArticleInfo();
+  const { title, fullText, reporter } = extractArticleInfo();
   const summary = generateSummary(fullText);
 
+  // 임의 정치 성향 비율 예시
   const politicalBias = {
     left: 65,
     right: 35
   };
 
-  createSidebar(title, summary, reporter, date, politicalBias);
+  createSidebar(title, summary, reporter, fullText, politicalBias);
 })();
