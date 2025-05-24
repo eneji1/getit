@@ -122,41 +122,41 @@
   }
 
   function createSidebar(title, summary, reporter, fullText, politicalBias) {
-    const sidebar = document.createElement('aside');
-    sidebar.id = 'news-sidebar-container';
-    sidebar.style.cssText = sidebarStyle;
+  if (!fullText || fullText.length < 100) return; // 너무 짧으면 사이드바 생성 안함
 
-    sidebar.innerHTML = `
-      <h2 style="font-size:20px; margin-top:0;">${title || '제목 없음'}</h2>
-      ${reporter ? `<p style="font-size:13px; color:#666;">🖋️ ${reporter}</p>` : ''}
-      <h3 style="font-size:16px; margin-top:20px;">요약</h3>
-      <p style="line-height:1.5; font-size:14px;">${summary}</p>
-      <hr />
-      <h3 style="font-size:15px; margin-top:20px;">본문 전체</h3>
-      <p style="line-height:1.5; font-size:13px;">${fullText}</p>
-      <div id="bias-bar-container" style="margin-top:20px;"></div>
-      <button id="news-sidebar-close" style="
-        position: absolute; 
-        top: 8px; 
-        right: 8px; 
-        background: transparent; 
-        border: none; 
-        font-size: 18px; 
-        cursor: pointer;
-        color: #666;">×</button>
-    `;
+  const sidebar = document.createElement('aside');
+  sidebar.id = 'news-sidebar-container';
+  sidebar.style.cssText = sidebarStyle;
 
-    document.body.appendChild(sidebar);
+  sidebar.innerHTML = `
+    <h2 style="font-size:20px; margin-top:0;">${title || '제목 없음'}</h2>
+    ${reporter ? `<p style="font-size:13px; color:#666;">🖋️ ${reporter}</p>` : ''}
+    <h3 style="font-size:16px; margin-top:20px;">요약</h3>
+    <p style="line-height:1.5; font-size:14px;">${summary}</p>
+    <div id="bias-bar-container" style="margin-top:20px;"></div>
+    <button id="news-sidebar-close" style="
+      position: absolute; 
+      top: 8px; 
+      right: 8px; 
+      background: transparent; 
+      border: none; 
+      font-size: 18px; 
+      cursor: pointer;
+      color: #666;">×</button>
+  `;
 
-    sidebar.querySelector('#news-sidebar-close').addEventListener('click', () => {
-      sidebar.remove();
-    });
+  document.body.appendChild(sidebar);
 
-    if (politicalBias && typeof politicalBias.left === 'number' && typeof politicalBias.right === 'number') {
-      const biasContainer = document.getElementById('bias-bar-container');
-      renderPoliticalBiasBar(biasContainer, politicalBias.left, politicalBias.right);
-    }
+  sidebar.querySelector('#news-sidebar-close').addEventListener('click', () => {
+    sidebar.remove();
+  });
+
+  if (politicalBias && typeof politicalBias.left === 'number' && typeof politicalBias.right === 'number') {
+    const biasContainer = document.getElementById('bias-bar-container');
+    renderPoliticalBiasBar(biasContainer, politicalBias.left, politicalBias.right);
   }
+  }
+
 
   // 실행
   const { title, fullText, reporter } = extractArticleInfo();
